@@ -16,7 +16,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DEFAULT_FILE_EXTENSIONS: Set[str] = {
-    '.txt', '.md', '.py', '.json', '.yaml', '.yml',
+    '.txt', '.md', '.py', '.json', '.jsonl', '.yaml', '.yml',
     '.csv', '.html', '.css', '.js', '.pdf'
 }
 
