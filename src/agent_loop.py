@@ -544,6 +544,7 @@ def _build_system_prompt(
     mcp_disabled_map: Optional[Dict[str, set]] = None,
     compact: bool = False,
     owner: Optional[str] = None,
+    system_prompts: Optional[List[str]] = None,
 ) -> List[Dict]:
     """Build agent system prompt, inject MCP/document context, merge consecutive system msgs."""
     global _cached_base_prompt, _cached_base_prompt_key
@@ -605,6 +606,37 @@ def _build_system_prompt(
         ) + agent_prompt
     except Exception:
         pass
+
+    # ── User-controlled system prompts ────────────────────────────────
+    # Injected after the base prompt + date/time so they influence every
+    # request.  When *system_prompts* is None the manager auto-loads all
+    # enabled prompts from data/system_prompts.json.  An explicit empty
+    # list means "inject nothing" (the caller is suppressing them for this
+    # request).  A list of names loads only those named prompts regardless
+    # of their enabled flag.
+    try:
+        from src.system_prompt_manager import get_system_prompt_manager
+        _spm = get_system_prompt_manager()
+        _active = _spm.get_active_prompts(system_prompts)
+        logger.info(
+            f"[system-prompts] injection reached — "
+            f"system_prompts param={system_prompts!r}, "
+            f"loaded={len(_active)}, "
+            f"names={[p['name'] for p in _active]}"
+        )
+        if _active:
+            _lines = [
+                "",
+                "## Active system prompts",
+                "The following behavioral prompts are active and should "
+                "influence your responses:",
+            ]
+            for _sp in _active:
+                _lines.append(f"\n### {_sp['name']}")
+                _lines.append(_sp["content"])
+            agent_prompt += "\n".join(_lines)
+    except Exception as _sp_err:
+        logger.warning(f"[system-prompts] injection FAILED (non-fatal): {_sp_err}", exc_info=True)
 
     # Document context is kept as a SEPARATE message (not merged into the tool
     # prompt) so the context trimmer doesn't destroy it when truncating the
@@ -1240,6 +1272,7 @@ async def stream_agent_loop(
     relevant_tools: Optional[Set[str]] = None,
     fallbacks: Optional[List[tuple]] = None,
     _is_teacher_run: bool = False,
+    system_prompts: Optional[List[str]] = None,
 ) -> AsyncGenerator[str, None]:
     """Streaming agent loop generator.
 
@@ -1379,6 +1412,7 @@ async def stream_agent_loop(
         mcp_disabled_map=_mcp_disabled_map,
         compact=_is_api_model,
         owner=owner,
+        system_prompts=system_prompts,
     )
     prep_timings["prompt_build"] = time.time() - _t2
 

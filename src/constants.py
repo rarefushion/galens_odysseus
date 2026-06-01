@@ -18,6 +18,7 @@ RUNBOOK_DIR = os.path.join(PERSONAL_DIR, "runbook")
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 FEATURES_FILE = os.path.join(DATA_DIR, "features.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+SYSTEM_PROMPTS_FILE = os.path.join(DATA_DIR, "system_prompts.json")
 
 # API Configuration
 MAX_CONTEXT_MESSAGES = 90

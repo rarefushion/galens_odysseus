@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Odysseus — first-time setup script.
 
-Creates data directories, initializes the database, and sets up an
-initial admin user. Safe to re-run (skips what already exists).
+Creates data directories, default system prompts, initializes the
+database, and sets up an initial admin user. Safe to re-run (skips
+what already exists).
 """
 
+import json
 import os
 import shutil
 import sys
@@ -31,6 +33,30 @@ def create_dirs():
     for d in DIRS:
         os.makedirs(d, exist_ok=True)
         print(f"  [ok] {os.path.relpath(d, BASE_DIR)}/")
+
+
+def create_default_system_prompts():
+    """Seed data/system_prompts.json if it doesn't already exist.
+
+    Writes from the canonical defaults defined in
+    src.system_prompt_manager.DEFAULT_SYSTEM_PROMPTS.  Mirrors the
+    existing pattern where settings.py defines DEFAULT_SETTINGS /
+    DEFAULT_FEATURES — the code-level default is the source of truth.
+    """
+    prompts_path = os.path.join(DATA_DIR, "system_prompts.json")
+    if os.path.exists(prompts_path):
+        print("  [skip] system_prompts.json already exists")
+        return
+
+    try:
+        sys.path.insert(0, BASE_DIR)
+        from src.system_prompt_manager import DEFAULT_SYSTEM_PROMPTS
+
+        with open(prompts_path, "w", encoding="utf-8") as f:
+            json.dump(DEFAULT_SYSTEM_PROMPTS, f, indent=2)
+        print("  [ok] system_prompts.json created with defaults")
+    except Exception as e:
+        print(f"  [warn] Could not create system_prompts.json: {e}")
 
 
 def init_database():
@@ -140,7 +166,10 @@ def main():
         print(f"  [warn] Database init failed: {e}")
         print("         This is OK if dependencies aren't installed yet.")
 
-    print("\n5. Creating initial admin...")
+    print("\n5. Creating default system prompts...")
+    create_default_system_prompts()
+
+    print("\n6. Creating initial admin...")
 
     admin_status = "failed"
 

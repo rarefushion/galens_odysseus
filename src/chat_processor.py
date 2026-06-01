@@ -190,6 +190,27 @@ class ChatProcessor:
             "content": UNTRUSTED_CONTEXT_POLICY,
         })
 
+        # ── User-controlled system prompts ────────────────────────────────
+        # Injected into every request (chat + agent) so enabled behavioral
+        # prompts influence responses.  Mirrors the injection in
+        # agent_loop._build_system_prompt.
+        try:
+            from src.system_prompt_manager import get_system_prompt_manager
+            _spm = get_system_prompt_manager()
+            _active = _spm.get_active_prompts()
+            if _active:
+                _lines = [
+                    "## Active system prompts",
+                    "The following behavioral prompts are active and should "
+                    "influence your responses:",
+                ]
+                for _sp in _active:
+                    _lines.append(f"\n### {_sp['name']}")
+                    _lines.append(_sp["content"])
+                preface.append({"role": "system", "content": "\n".join(_lines)})
+        except Exception:
+            pass
+
         # Memory: pinned (always included) + extended (RAG-retrieved when relevant)
         self._last_used_memories = []  # track what was injected
         if use_memory:
