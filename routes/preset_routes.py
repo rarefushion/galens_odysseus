@@ -120,4 +120,40 @@ def setup_preset_routes(preset_manager) -> APIRouter:
         preset_manager.save_group_presets(data.get("groups", []))
         return {"ok": True}
 
+    # ── System prompts ──
+    @router.get("/api/presets/system-prompts")
+    async def get_system_prompts() -> Dict[str, Any]:
+        """Return all system prompts (enabled + disabled) for UI listing."""
+        from src.system_prompt_manager import get_system_prompt_manager
+        spm = get_system_prompt_manager()
+        return {"prompts": spm.get_all_prompts()}
+
+    @router.post("/api/presets/system-prompts")
+    async def save_system_prompts(request: Request, _admin: None = Depends(require_admin)) -> Dict[str, Any]:
+        """Save the full system prompts list.  Body: {prompts: [...]}"""
+        from src.system_prompt_manager import get_system_prompt_manager
+        spm = get_system_prompt_manager()
+        data = await request.json()
+        prompts = data.get("prompts", [])
+        if not isinstance(prompts, list):
+            raise HTTPException(400, "'prompts' must be a list")
+        success = spm.save_all_prompts(prompts)
+        if success:
+            return {"success": True, "message": f"Saved {len(prompts)} system prompts"}
+        raise HTTPException(500, "Failed to save system prompts")
+
+    @router.delete("/api/presets/system-prompts/{index}")
+    async def delete_system_prompt(index: int, _admin: None = Depends(require_admin)) -> Dict[str, Any]:
+        """Delete a system prompt by its array index."""
+        from src.system_prompt_manager import get_system_prompt_manager
+        spm = get_system_prompt_manager()
+        prompts = spm.get_all_prompts()
+        if index < 0 or index >= len(prompts):
+            raise HTTPException(404, f"System prompt at index {index} not found")
+        prompts.pop(index)
+        success = spm.save_all_prompts(prompts)
+        if success:
+            return {"success": True, "message": "System prompt deleted"}
+        raise HTTPException(500, "Failed to delete system prompt")
+
     return router

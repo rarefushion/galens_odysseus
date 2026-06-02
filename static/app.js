@@ -470,6 +470,11 @@ function initializeEventListeners() {
       // Skip character save when Group tab is active — group.js handles it
       const activeTab = document.querySelector('.preset-tab.active');
       if (activeTab && activeTab.dataset.chartab === 'group') return;
+      // System tab — persist in-memory changes then close
+      if (activeTab && activeTab.dataset.chartab === 'system') {
+        await presetsModule.saveAndClose();
+        return;
+      }
       await presetsModule.saveCustomPreset(uiModule.showToast, uiModule.showError);
     });
   }

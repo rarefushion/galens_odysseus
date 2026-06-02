@@ -9294,6 +9294,226 @@ details a:hover {
   display: none;
 }
 
+/* ── System prompt list (System tab in Prompt modal) ── */
+
+/* Info banner explaining how system prompts differ from Inject */
+.system-prompt-info-banner {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-muted) 8%, transparent);
+  border: 1px solid var(--border);
+  font-size: 10.5px;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+.system-prompt-info-banner p {
+  margin: 0 0 5px 0;
+}
+.system-prompt-info-banner p:last-of-type {
+  margin-bottom: 4px;
+}
+.system-prompt-info-banner strong {
+  color: var(--fg);
+}
+.system-prompt-info-banner pre {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin: 0;
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.system-prompt-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+}
+.system-prompt-item-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.system-prompt-name {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 2px 4px;
+  border-radius: 4px;
+  outline: none;
+  min-width: 0;
+}
+.system-prompt-name:focus {
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--red);
+}
+
+/* Toggle switch — reuse admin-switch pattern */
+.system-prompt-toggle {
+  --sp-toggle-w: 30px;
+  --sp-toggle-h: 17px;
+  flex-shrink: 0;
+  position: relative;
+  width: var(--sp-toggle-w);
+  height: var(--sp-toggle-h);
+}
+.system-prompt-toggle input {
+  display: none;
+}
+.system-prompt-toggle .sp-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--sp-toggle-h) / 2);
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.system-prompt-toggle input:checked + .sp-toggle-track {
+  background: var(--red);
+}
+.system-prompt-toggle .sp-toggle-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: calc(var(--sp-toggle-h) - 4px);
+  height: calc(var(--sp-toggle-h) - 4px);
+  border-radius: 50%;
+  background: var(--fg);
+  transition: transform 0.15s;
+}
+.system-prompt-toggle input:checked ~ .sp-toggle-thumb {
+  transform: translateX(calc(var(--sp-toggle-w) - var(--sp-toggle-h)));
+}
+
+.system-prompt-description {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 4px;
+  margin-top: 2px;
+  border-radius: 4px;
+  outline: none;
+}
+.system-prompt-description:focus {
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--red);
+  color: var(--fg);
+}
+
+/* Collapse row (arrow + "Content" label) */
+.system-prompt-collapse-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.system-prompt-collapse-label {
+  font-size: 10.5px;
+  color: var(--color-muted);
+  user-select: none;
+}
+
+/* Collapse arrow */
+.system-prompt-collapse-btn {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  transition: transform 0.2s;
+}
+.system-prompt-collapse-btn:hover {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.system-prompt-collapse-btn.expanded {
+  transform: rotate(180deg);
+}
+
+.system-prompt-content-wrap {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+  max-height: 300px;
+  opacity: 1;
+  margin-top: 6px;
+}
+.system-prompt-content-wrap.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+.system-prompt-content {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: 'Fira Code', monospace;
+  resize: vertical;
+  min-height: 48px;
+}
+.system-prompt-content:focus {
+  outline: none;
+  border-color: var(--red);
+}
+
+/* Delete button for a prompt item */
+.system-prompt-delete-btn {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+.system-prompt-delete-btn:hover {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+}
+
+/* Save indicator — brief ✓ Saved flash */
+.system-prompt-saved {
+  font-size: 10px;
+  color: var(--red);
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.system-prompt-saved.show {
+  opacity: 1;
+}
+
 .preset-templates-hint {
   font-size: 11px;
   color: var(--color-muted);

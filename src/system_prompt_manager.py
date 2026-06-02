@@ -177,6 +177,29 @@ class SystemPromptManager:
         self._ensure_fresh()
         return list(self._cache) if self._cache else []
 
+    def save_all_prompts(self, prompts: List[dict]) -> bool:
+        """Save the full prompts list to the JSON config file.
+
+        Returns True on success.  The on-disk mtime will change, so the next
+        ``_ensure_fresh()`` call on GET paths automatically picks up the new
+        data — no explicit ``reload()`` required.
+        """
+        try:
+            os.makedirs(os.path.dirname(self._config_path), exist_ok=True)
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                json.dump({"prompts": prompts}, f, indent=2, ensure_ascii=False)
+            # Update in-memory cache so reads before the next mtime-check
+            # also see the latest data.
+            self._cache = list(prompts)
+            self._cache_mtime = os.path.getmtime(self._config_path)
+            logger.info(
+                f"[system-prompts] saved {len(prompts)} prompts to {self._config_path}"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"[system-prompts] failed to save: {e}", exc_info=True)
+            return False
+
 
 # ---------------------------------------------------------------------------
 # Module-level singleton

@@ -54,6 +54,7 @@ export const PROMPT_TEMPLATES = [
 ];
 
 let userTemplates = [];
+let _systemPrompts = [];
 
 /**
  * Initialize with dependencies
@@ -67,6 +68,7 @@ export function init(apiBase) {
   initSaveAsTemplate();
   initExpandButton();
   initPersistentChat();
+  initSystemTab();
   loadUserTemplates();
 }
 
@@ -609,6 +611,9 @@ export function openCustomPresetModal() {
     let label;
     if (activeTab === 'group') {
       label = 'Start Group';
+    } else if (activeTab === 'system') {
+      // System tab — all edits are in-memory only.  saveAndClose() persists.
+      label = 'Save & Close';
     } else if (activeTab === 'inject') {
       // Inject tab = a plain tuned "prompt" chat (prefix/suffix + temp/tokens),
       // no persona.
@@ -624,10 +629,14 @@ export function openCustomPresetModal() {
     // tiny X on the chat bar.
     const cancelBtn = document.getElementById('cancel-custom-preset');
     if (cancelBtn) {
-      const groupOn = !!(window.groupModule && window.groupModule.isActive && window.groupModule.isActive());
-      const featOn = activeTab === 'group' ? groupOn : !!(presets.custom && presets.custom.enabled);
-      cancelBtn.style.display = featOn ? '' : 'none';
-      cancelBtn.textContent = activeTab === 'group' ? 'Cancel group' : 'Cancel';
+      if (activeTab === 'system') {
+        cancelBtn.style.display = 'none';
+      } else {
+        const groupOn = !!(window.groupModule && window.groupModule.isActive && window.groupModule.isActive());
+        const featOn = activeTab === 'group' ? groupOn : !!(presets.custom && presets.custom.enabled);
+        cancelBtn.style.display = featOn ? '' : 'none';
+        cancelBtn.textContent = activeTab === 'group' ? 'Cancel group' : 'Cancel';
+      }
     }
     // Reset only makes sense on the character tab (it resets the persona).
     if (resetBtn) resetBtn.style.display = (changed && activeTab === 'character') ? '' : 'none';
@@ -718,6 +727,9 @@ export function openCustomPresetModal() {
     if (resetBtn) resetBtn.style.display = '';
     if (newBtn) newBtn.style.display = '';
   }
+
+  // Load system prompts for the System tab
+  loadSystemPrompts().then(() => { _renderSystemPrompts(); });
 
   modal.classList.remove('hidden');
 }
@@ -1072,6 +1084,237 @@ export function removePersistentChat(sessionId) {
   }
 }
 
+// ── System Prompt tab ─────────────────────────────────────────────────
+
+function initSystemTab() {
+  const addBtn = document.getElementById('system-add-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', _addSystemPrompt);
+  }
+}
+
+/**
+ * Fetch system prompts from backend and cache them.
+ */
+async function loadSystemPrompts() {
+  try {
+    const res = await fetch(`${API_BASE}/api/presets/system-prompts`);
+    if (res.ok) {
+      const data = await res.json();
+      _systemPrompts = data.prompts || [];
+    }
+  } catch (e) {
+    console.warn('[system-prompts] Failed to load:', e);
+  }
+}
+
+/**
+ * Render all system prompts into the list container.
+ */
+function _renderSystemPrompts() {
+  const list = document.getElementById('system-prompts-list');
+  if (!list) return;
+  list.innerHTML = '';
+  _systemPrompts.forEach((p, i) => {
+    list.appendChild(_createSystemPromptItem(p, i));
+  });
+}
+
+/**
+ * Build one system prompt card DOM element.
+ * All edits only update the in-memory _systemPrompts array — nothing is
+ * persisted until saveAndClose() is called.
+ */
+function _createSystemPromptItem(prompt, index) {
+  const item = document.createElement('div');
+  item.className = 'system-prompt-item';
+  item.dataset.index = index;
+
+  // ── Header row: name, delete ──
+  const header = document.createElement('div');
+  header.className = 'system-prompt-item-header';
+
+  // Name input
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'system-prompt-name';
+  nameInput.value = prompt.name || '';
+  nameInput.placeholder = 'Name and Content Header';
+  nameInput.addEventListener('input', () => {
+    _systemPrompts[index].name = nameInput.value;
+  });
+
+  // Delete button
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'system-prompt-delete-btn';
+  delBtn.title = 'Delete this system prompt';
+  delBtn.innerHTML = '✕';
+  delBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _deleteSystemPrompt(index);
+  });
+
+  header.appendChild(nameInput);
+  header.appendChild(delBtn);
+
+  // ── Toggle row: enabled toggle ──
+  const toggleRow = document.createElement('div');
+  toggleRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:2px;';
+
+  const toggleLabel = document.createElement('label');
+  toggleLabel.className = 'system-prompt-toggle';
+  toggleLabel.title = prompt.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable';
+
+  const toggleInput = document.createElement('input');
+  toggleInput.type = 'checkbox';
+  toggleInput.checked = !!prompt.enabled;
+  toggleInput.addEventListener('change', () => {
+    _systemPrompts[index].enabled = toggleInput.checked;
+    toggleLabel.title = toggleInput.checked ? 'Enabled — click to disable' : 'Disabled — click to enable';
+  });
+
+  const track = document.createElement('span');
+  track.className = 'sp-toggle-track';
+  const thumb = document.createElement('span');
+  thumb.className = 'sp-toggle-thumb';
+
+  toggleLabel.appendChild(toggleInput);
+  toggleLabel.appendChild(track);
+  toggleLabel.appendChild(thumb);
+
+  const toggleText = document.createElement('span');
+  toggleText.style.cssText = 'font-size:10px;color:var(--color-muted);';
+  toggleText.textContent = prompt.enabled ? 'Enabled' : 'Disabled';
+  toggleInput.addEventListener('change', () => {
+    toggleText.textContent = toggleInput.checked ? 'Enabled' : 'Disabled';
+  });
+
+  toggleRow.appendChild(toggleLabel);
+  toggleRow.appendChild(toggleText);
+
+  // ── Description input ──
+  const descInput = document.createElement('input');
+  descInput.type = 'text';
+  descInput.className = 'system-prompt-description';
+  descInput.value = prompt.description || '';
+  descInput.placeholder = 'Not included short description';
+  descInput.addEventListener('input', () => {
+    _systemPrompts[index].description = descInput.value;
+  });
+
+  // ── Collapse/expand row (chevron + "Content" label) ──
+  const collapseRow = document.createElement('div');
+  collapseRow.className = 'system-prompt-collapse-row';
+
+  const collapseBtn = document.createElement('button');
+  collapseBtn.type = 'button';
+  collapseBtn.className = 'system-prompt-collapse-btn';
+  collapseBtn.title = 'Expand content';
+  collapseBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  const collapseLabel = document.createElement('span');
+  collapseLabel.className = 'system-prompt-collapse-label';
+  collapseLabel.textContent = 'Content';
+
+  collapseRow.appendChild(collapseBtn);
+  collapseRow.appendChild(collapseLabel);
+
+  // ── Content textarea (wrapped for collapse animation) ──
+  const contentWrap = document.createElement('div');
+  contentWrap.className = 'system-prompt-content-wrap';
+
+  const contentTextarea = document.createElement('textarea');
+  contentTextarea.className = 'system-prompt-content';
+  contentTextarea.rows = 3;
+  contentTextarea.value = prompt.content || '';
+  contentTextarea.placeholder = 'Added before all messages';
+  contentTextarea.addEventListener('input', () => {
+    _systemPrompts[index].content = contentTextarea.value;
+  });
+
+  contentWrap.appendChild(contentTextarea);
+
+  // Collapse toggle — default collapsed
+  let _collapsed = true;
+  contentWrap.classList.add('collapsed');
+  collapseBtn.addEventListener('click', () => {
+    _collapsed = !_collapsed;
+    if (_collapsed) {
+      contentWrap.classList.add('collapsed');
+      collapseBtn.classList.remove('expanded');
+      collapseBtn.title = 'Expand content';
+    } else {
+      contentWrap.classList.remove('collapsed');
+      collapseBtn.classList.add('expanded');
+      collapseBtn.title = 'Collapse content';
+    }
+  });
+
+  // Assemble
+  item.appendChild(header);
+  item.appendChild(toggleRow);
+  item.appendChild(descInput);
+  item.appendChild(collapseRow);
+  item.appendChild(contentWrap);
+
+  return item;
+}
+
+/**
+ * Add a new blank system prompt (in-memory only — saved on saveAndClose).
+ */
+function _addSystemPrompt() {
+  const prompt = {
+    name: '',
+    enabled: false,
+    description: '',
+    content: '',
+  };
+  _systemPrompts.push(prompt);
+  _renderSystemPrompts();
+  // Focus the name field of the new item
+  setTimeout(() => {
+    const list = document.getElementById('system-prompts-list');
+    if (list) {
+      const last = list.querySelector('.system-prompt-item:last-child .system-prompt-name');
+      if (last) last.focus();
+    }
+  }, 100);
+}
+
+/**
+ * Delete the system prompt at *index* after confirmation (in-memory only).
+ */
+async function _deleteSystemPrompt(index) {
+  const prompt = _systemPrompts[index];
+  const label = prompt.name || `System prompt #${index + 1}`;
+  if (!await window.styledConfirm(`Delete "${label}"?`, { confirmText: 'Delete', danger: true })) return;
+  _systemPrompts.splice(index, 1);
+  _renderSystemPrompts();
+}
+
+/**
+ * Persist all in-memory changes to the backend and close the modal.
+ * This is the ONLY save path — closing without calling this discards changes.
+ */
+export async function saveAndClose() {
+  try {
+    const res = await fetch(`${API_BASE}/api/presets/system-prompts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompts: _systemPrompts }),
+    });
+    if (!res.ok) {
+      console.warn('[system-prompts] Save failed:', res.status);
+    }
+  } catch (e) {
+    console.warn('[system-prompts] Save failed:', e);
+  }
+  const modal = document.getElementById('custom-preset-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
 const presetsModule = {
   init,
   loadPresets,
@@ -1086,7 +1329,8 @@ const presetsModule = {
   isPersistentChat,
   removePersistentChat,
   deactivateCharacter,
-  getInject
+  getInject,
+  saveAndClose
 };
 
 export default presetsModule;
